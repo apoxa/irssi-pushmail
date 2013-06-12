@@ -10,7 +10,7 @@ $VERSION = '0.2';
     name        => 'pushmail',
     description => 'push a mail on hilight/privmsg',
     license     => 'Beerware',
-    changed     => '$Date: 2013-01-31 $'
+    changed     => '$Date: 2013-06-12 $'
 );
 
 # Settings:
@@ -35,19 +35,6 @@ Irssi::settings_add_str(
     '/usr/bin/mail -s'
 );
 
-my $away;
-
-sub catch_away {
-    my $server = shift;
-
-    if ( $server->{usermode_away} ) {
-        $away = 1;
-    }
-    else {
-        $away = 0;
-    }
-}
-
 sub priv_msg {
     my ( $server, $msg, $nick, $address, $target ) = @_;
     filewrite( "<" . $nick . ">" . " " . $msg );
@@ -61,7 +48,7 @@ sub hilight {
 }
 
 sub filewrite {
-    if ( $away eq "1" ) {
+    if ( $server->{usermode_away} ) {
         my ($text) = @_;
         my $date = `date`;
         open( FILE, ">$ENV{HOME}/.irssi/pushmail" );
@@ -77,7 +64,6 @@ sub filewrite {
 }
 
 # Catch signals
-Irssi::signal_add( "away mode changed", "catch_away" );
 Irssi::signal_add_last( "message private", "priv_msg" );
 Irssi::signal_add_last( "print text",      "hilight" );
 
