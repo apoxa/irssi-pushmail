@@ -1,35 +1,39 @@
+# NAME
+
+pushmail.pl
+
 # DESCRIPTION
 
 An Irssi script to send you an email if you receive a hilight or privmsg.
 
 # INSTALLATION
 
-Copy into your `~/.irssi/scripts/` directory and load with 
+Copy into your `~/.irssi/scripts/` directory and load with
 `/SCRIPT LOAD pushmail.pl`.
 
 ## DEPENDENCIES
 
-- None yet
+- Mail::Send
 
 # SETTINGS
 
-- _pushmail\_address_ 
+- _pushmail\_to\_address_
 
     The address, where hilights/privmsgs are send to
 
     (Defaults to `$ENV{USER}`)
 
-- _pushmail\_subject_ 
+- _pushmail\_from\_address_
+
+    The address, which is shown as the sender of the mail.
+
+    (Defaults to `$ENV{USER}`)
+
+- _pushmail\_subject_
 
     The subject of these mails.
 
     (Defaults to `hilight/privmsg received`)
-
-- _pushmail\_mailer_ 
-
-    Full path to the mailer-program you use.
-
-    (Defaults to `/usr/bin/mail -s`)
 
 # AUTHORS
 

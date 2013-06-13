@@ -10,22 +10,25 @@ An Irssi script to send you an email if you receive a hilight or privmsg.
 
 =head1 INSTALLATION
 
-Copy into your F<~/.irssi/scripts/> directory and load with 
+Copy into your F<~/.irssi/scripts/> directory and load with
 C</SCRIPT LOAD pushmail.pl>.
 
 =head2 DEPENDENCIES
 
 =over 4
 
-=item * None yet
+=item * Mail::Send
 
 =back
 
 =cut
 
 use strict;
+use warnings;
 use vars qw($VERSION %IRSSI);
 
+use POSIX;
+use Mail::Send;
 use Irssi;
 $VERSION = '0.2';
 %IRSSI   = (
@@ -41,17 +44,29 @@ $VERSION = '0.2';
 
 =over 4
 
-=item * I<pushmail_address> 
+=item * I<pushmail_to_address>
 
 The address, where hilights/privmsgs are send to
 
 (Defaults to C<$ENV{USER}>)
 
-=cut 
+=cut
 
-Irssi::settings_add_str( 'misc', $IRSSI{name} . '_address', $ENV{USER} );
+Irssi::settings_add_str( 'pushmail', $IRSSI{name} . '_to_address',
+    $ENV{USER} );
 
-=item * I<pushmail_subject> 
+=item * I<pushmail_from_address>
+
+The address, which is shown as the sender of the mail.
+
+(Defaults to C<$ENV{USER}>)
+
+=cut
+
+Irssi::settings_add_str( 'pushmail', $IRSSI{name} . '_from_address',
+    $ENV{USER} );
+
+=item * I<pushmail_subject>
 
 The subject of these mails.
 
@@ -60,60 +75,62 @@ The subject of these mails.
 =cut
 
 Irssi::settings_add_str(
-    'misc',
+    'pushmail',
     $IRSSI{name} . '_subject',
     'hilight/privmsg received'
-);
 
-=item * I<pushmail_mailer> 
-
-Full path to the mailer-program you use.
-
-(Defaults to C</usr/bin/mail -s>)
-
-=cut
-
-Irssi::settings_add_str(
-    'misc',
-    $IRSSI{name} . '_mailer',
-    '/usr/bin/mail -s'
 );
 
 =back
 
 =cut
 
-sub priv_msg {
-    my ( $server, $msg, $nick, $address, $target ) = @_;
-    filewrite( "<" . $nick . ">" . " " . $msg );
+my $away = 0;
+
+# Catch away mode change
+sub catch_away {
+    my $server = shift;
+    $away = ( $server->{usermode_away} ? 1 : 0 );
 }
 
+# Handler for private messages
+sub priv_msg {
+    my ( $server, $msg, $nick, $address, $target ) = @_;
+    send_mail( "<" . $nick . ">" . " " . $msg );
+}
+
+# Handler for hilights
 sub hilight {
     my ( $dest, $text, $stripped ) = @_;
     if ( $dest->{level} & MSGLEVEL_HILIGHT ) {
-        filewrite( $dest->{target} . " " . $stripped );
+        send_mail( $dest->{target} . " " . $stripped );
     }
 }
 
-sub filewrite {
-    if ( $server->{usermode_away} ) {
-        my ($text) = @_;
-        my $date = `date`;
-        open( FILE, ">$ENV{HOME}/.irssi/pushmail" );
-        print FILE "\n" . $date . $text . "\n\n";
-        close(FILE);
-        my $mail
-            = "cat $ENV{HOME}/.irssi/pushmail | "
-            . Irssi::settings_get_str( $IRSSI{name} . '_mailer' ) . " "
-            . Irssi::settings_get_str( $IRSSI{name} . '_subject' ) . " "
-            . Irssi::settings_get_str( $IRSSI{name} . '_address' );
-        `$mail`;
-    }
+# Function to send the mail
+sub send_mail {
+
+    # Only send mail, if user is away
+    return unless $away;
+
+    my ($text) = @_;
+    my $date = POSIX::strftime( "%c", localtime );
+    $text = "$date\n$text";    # Prepend date to text
+                               # If external mailer is set, open a handle
+    my $msg = Mail::Send->new();
+    $msg->to( Irssi::settings_get_str( $IRSSI{name} . '_to_address' ) );
+    $msg->subject( Irssi::settings_get_str( $IRSSI{name} . '_subject' ) );
+    $msg->set( 'From',
+        Irssi::settings_get_str( $IRSSI{name} . '_from_address' ) );
+    my $MAILER = $msg->open();
+    print {$MAILER} $text;
+    $MAILER->close or warn "cannot close Mail::Send: $!";
 }
 
 # Catch signals
-Irssi::signal_add_last( "message private", "priv_msg" );
-Irssi::signal_add_last( "print text",      "hilight" );
+Irssi::signal_add_last( "away mode changed", "catch_away" );
+Irssi::signal_add_last( "message private",   "priv_msg" );
+Irssi::signal_add_last( "print text",        "hilight" );
 
 =head1 AUTHORS
 
